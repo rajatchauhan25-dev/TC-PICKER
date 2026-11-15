@@ -77,6 +77,9 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 .getm{width:100%;margin-top:16px;padding:14px;border:0;border-radius:12px;background:var(--red);color:#fff;font:800 1rem 'Bricolage Grotesque',sans-serif;cursor:pointer}
 .getm:disabled{opacity:.6}
 .getm+.acts{margin-top:10px}
+a.getm{display:block;text-align:center;text-decoration:none}
+a.getm.alt{background:transparent;color:var(--ink);border:1px solid var(--line);margin-top:10px;font-weight:700}
+#dlShare{display:none;width:100%;margin-top:10px;padding:14px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--ink);font-weight:700;font-size:1rem;cursor:pointer}
 </style>
 </head>
 <body>
@@ -125,6 +128,15 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
   <div id="vList"></div>
   <button class="getm" id="vGet">GET MATTERS (PDF)</button>
   <div class="acts"><button class="danger" id="vDel">Delete this day</button><button class="main" id="vClose">Close</button></div>
+</div></div>
+<div class="ov" id="ovPdf"><div class="sheet">
+  <div class="grip"></div>
+  <h3>PDF ready</h3>
+  <div class="sub" id="dlSub"></div>
+  <a class="getm" id="dlLink" download="matters.pdf">Download PDF</a>
+  <a class="getm alt" id="dlOpen" target="_blank" rel="noopener">Open / Preview</a>
+  <button id="dlShare">Share (Telegram etc.)</button>
+  <div class="acts"><button class="main" id="dlClose">Close</button></div>
 </div></div>
 <div class="toast" id="toast"></div>
 
@@ -318,6 +330,19 @@ function buildMattersPdf(JsPDF,rows,dateLabel){
   doc.setProperties({title:'KC 840 Matters',author:'The SSC Scholars'});
   return doc;
 }
+let pdfUrl=null,pdfFile=null;
+function showPdf(blob,name,nm,np,partial){
+  if(pdfUrl)URL.revokeObjectURL(pdfUrl);
+  pdfUrl=URL.createObjectURL(blob);
+  pdfFile=new File([blob],name,{type:'application/pdf'});
+  $('dlLink').href=pdfUrl;$('dlLink').download=name;$('dlOpen').href=pdfUrl;
+  $('dlSub').textContent=nm+' matter, '+np+' page'+(partial?' (kuch matter JSON me nahi mile)':'');
+  let can=false;try{can=!!(navigator.canShare&&navigator.canShare({files:[pdfFile]}))}catch(e){}
+  $('dlShare').style.display=can?'block':'none';
+  open('ovPdf');
+}
+$('dlShare').onclick=async()=>{try{await navigator.share({files:[pdfFile],title:pdfFile.name})}catch(e){}};
+$('dlClose').onclick=()=>close('ovPdf');
 async function getMatters(list,dateKey,btn){
   if(!list||!list.length)return;
   const J=window.jspdf&&window.jspdf.jsPDF;
@@ -329,8 +354,8 @@ async function getMatters(list,dateKey,btn){
     const rows=list.map(r=>M.get(r[0])).filter(Boolean);
     if(!rows.length){toast('Matter JSON me nahi mila');return}
     const doc=buildMattersPdf(J,rows,dateKey?fmt(dateKey):'');
-    doc.save('KC840_Matters_'+(dateKey||today())+'.pdf');
-    toast(rows.length<list.length?'PDF ban gayi (kuch matter JSON me nahi mile)':'PDF ready');
+    const name='KC840_Matters_'+(dateKey||today())+'.pdf';
+    showPdf(doc.output('blob'),name,rows.length,doc.getNumberOfPages(),rows.length<list.length);
   }catch(e){console.error(e);toast('PDF me error aaya')}
   finally{btn.disabled=false;btn.textContent=old}
 }
